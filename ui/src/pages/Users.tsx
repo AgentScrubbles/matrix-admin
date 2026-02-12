@@ -121,7 +121,7 @@ export default function Users() {
             render: (u) => (
               <button
                 style={btnStyle}
-                onClick={(e) => { e.stopPropagation(); setResetTarget(u.name); }}
+                onClick={(e) => { e.stopPropagation(); setResetTarget(String(u.name)); }}
               >
                 Reset Password
               </button>
