@@ -7,7 +7,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
     ...opts,
   });
   if (res.status === 401) {
-    window.location.href = "/login";
+    window.dispatchEvent(new Event("auth:expired"));
     throw new Error("Unauthorized");
   }
   if (!res.ok) {

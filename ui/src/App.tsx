@@ -36,6 +36,10 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
       .then((d) => setUserId(d.user_id))
       .catch(() => setUserId(null))
       .finally(() => setLoading(false));
+
+    const handleExpired = () => setUserId(null);
+    window.addEventListener("auth:expired", handleExpired);
+    return () => window.removeEventListener("auth:expired", handleExpired);
   }, []);
 
   const login = async (username: string, password: string) => {
