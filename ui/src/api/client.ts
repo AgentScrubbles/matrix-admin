@@ -22,4 +22,22 @@ export const api = {
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  uploadFile: async <T>(path: string, file: File): Promise<T> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch(`${BASE}${path}`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+    });
+    if (res.status === 401) {
+      window.dispatchEvent(new Event("auth:expired"));
+      throw new Error("Unauthorized");
+    }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.detail || `Upload failed: ${res.status}`);
+    }
+    return res.json();
+  },
 };

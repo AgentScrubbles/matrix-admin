@@ -3,7 +3,7 @@ import secrets
 import string
 import re
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel
 
 from app.auth import get_current_session
@@ -32,10 +32,29 @@ class CreateUserRequest(BaseModel):
     password: str | None = None
     displayname: str | None = None
     admin: bool = False
+    user_type: str | None = None
+    avatar_url: str | None = None
 
 
 class ResetPasswordRequest(BaseModel):
     new_password: str | None = None
+
+
+@router.post("/avatar-upload")
+async def upload_avatar(request: Request, file: UploadFile = File(...)):
+    session = await get_current_session(request)
+
+    allowed_types = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid image format. Use JPEG, PNG, GIF, or WebP.")
+
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 10MB)")
+
+    synapse = SynapseClient(session["access_token"])
+    result = await synapse.upload_media(contents, file.content_type, file.filename)
+    return {"mxc_uri": result["content_uri"]}
 
 
 @router.get("/users")
@@ -69,15 +88,18 @@ async def create_user(body: CreateUserRequest, request: Request):
     user_id = _make_user_id(body.username)
     password = body.password or _generate_password()
 
+    data = {
+        "password": password,
+        "displayname": body.displayname or body.username,
+        "admin": body.admin,
+    }
+    if body.user_type is not None:
+        data["user_type"] = body.user_type
+    if body.avatar_url is not None:
+        data["avatar_url"] = body.avatar_url
+
     synapse = SynapseClient(session["access_token"])
-    result = await synapse.create_or_update_user(
-        user_id,
-        {
-            "password": password,
-            "displayname": body.displayname or body.username,
-            "admin": body.admin,
-        },
-    )
+    result = await synapse.create_or_update_user(user_id, data)
 
     authentik_user = request.headers.get("X-Authentik-Username", "unknown")
     logger.info("User %s created by %s (authentik: %s)", user_id, session["user_id"], authentik_user)

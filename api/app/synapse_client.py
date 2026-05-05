@@ -204,6 +204,24 @@ class SynapseClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def upload_media(self, file_bytes: bytes, content_type: str, filename: str | None = None) -> dict:
+        params = {}
+        if filename:
+            params["filename"] = filename
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{self._base}/_matrix/media/v3/upload",
+                headers={**self._headers, "Content-Type": content_type},
+                params=params,
+                content=file_bytes,
+                timeout=60.0,
+            )
+        if resp.status_code == 401:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=401, detail="Matrix token expired")
+        resp.raise_for_status()
+        return resp.json()
+
     # --- Server ---
 
     async def server_version(self) -> dict:
