@@ -36,6 +36,8 @@ export default function UserDetail() {
   const [tab, setTab] = useState<"profile" | "devices" | "sessions">("profile");
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [deleteDeviceId, setDeleteDeviceId] = useState<string | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
 
   const uid = decodeURIComponent(userId || "");
 
@@ -66,7 +68,20 @@ export default function UserDetail() {
     api.get<{ devices: Device[] }>(`/users/${encodeURIComponent(uid)}/devices`).then((d) => setDevices(d.devices || []));
   };
 
+  const handleGenerateToken = async () => {
+    setGeneratingToken(true);
+    try {
+      const result = await api.post<{ access_token: string }>(`/users/${encodeURIComponent(uid)}/login`);
+      setAccessToken(result.access_token);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to generate token");
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
   if (!user) return <div>Loading...</div>;
+  const isBot = user.user_type === "bot";
 
   const tabs = ["profile", "devices", "sessions"] as const;
 
@@ -101,6 +116,7 @@ export default function UserDetail() {
               {[
                 ["Display Name", user.displayname],
                 ["Admin", user.admin ? "Yes" : "No"],
+                ["User Type", user.user_type === "bot" ? "Bot" : "Regular"],
                 ["Active", user.deactivated ? "No" : "Yes"],
                 ["Created", user.creation_ts ? new Date(Number(user.creation_ts) * 1000).toLocaleString() : "—"],
                 ["Avatar URL", user.avatar_url || "—"],
@@ -112,7 +128,16 @@ export default function UserDetail() {
               ))}
             </tbody>
           </table>
-          <div style={{ marginTop: 16 }}>
+          <div style={{ marginTop: 16, display: "flex", gap: 8 }}>
+            {isBot && (
+              <button
+                style={{ ...btnStyle, background: "#16213e", color: "#fff", border: "none" }}
+                onClick={handleGenerateToken}
+                disabled={generatingToken}
+              >
+                {generatingToken ? "Generating..." : "Generate Access Token"}
+              </button>
+            )}
             <button
               style={{ ...btnStyle, background: "#dc3545", color: "#fff", border: "none" }}
               onClick={() => setDeactivateOpen(true)}
@@ -121,6 +146,13 @@ export default function UserDetail() {
               Deactivate User
             </button>
           </div>
+          {accessToken && (
+            <div style={{ marginTop: 12, background: "#f0fdf4", border: "1px solid #86efac", padding: "10px 14px", borderRadius: 4, fontSize: 13 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>Access Token</div>
+              <code style={{ wordBreak: "break-all", userSelect: "all" }}>{accessToken}</code>
+              <button style={{ ...btnStyle, marginLeft: 12, padding: "2px 8px" }} onClick={() => setAccessToken(null)}>Dismiss</button>
+            </div>
+          )}
         </div>
       )}
 

@@ -107,6 +107,23 @@ async def create_user(body: CreateUserRequest, request: Request):
     return {**result, "generated_password": password if not body.password else None}
 
 
+@router.post("/users/{user_id:path}/login")
+async def login_as_user(user_id: str, request: Request):
+    session = await get_current_session(request)
+    synapse = SynapseClient(session["access_token"])
+
+    user = await synapse.get_user(user_id)
+    if user.get("user_type") != "bot":
+        raise HTTPException(status_code=400, detail="Access tokens can only be generated for bot accounts")
+
+    result = await synapse.login_as_user(user_id)
+
+    authentik_user = request.headers.get("X-Authentik-Username", "unknown")
+    logger.info("Access token generated for %s by %s (authentik: %s)", user_id, session["user_id"], authentik_user)
+
+    return {"access_token": result["access_token"]}
+
+
 @router.post("/users/{user_id:path}/reset-password")
 async def reset_password(user_id: str, body: ResetPasswordRequest, request: Request):
     session = await get_current_session(request)

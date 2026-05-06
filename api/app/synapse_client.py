@@ -92,6 +92,14 @@ class SynapseClient:
         resp.raise_for_status()
         return resp.json()
 
+    async def login_as_user(self, user_id: str) -> dict:
+        resp = await self.post(
+            f"/_synapse/admin/v1/users/{user_id}/login",
+            json={},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     async def get_user_devices(self, user_id: str) -> dict:
         resp = await self.get(f"/_synapse/admin/v2/users/{user_id}/devices")
         resp.raise_for_status()
